@@ -1,8 +1,9 @@
 package com.xxl.job.core.log;
 
-import org.apache.log4j.AppenderSkeleton;
-import org.apache.log4j.Layout;
-import org.apache.log4j.spi.LoggingEvent;
+import com.xxl.job.core.biz.model.LogResult;
+import com.xxl.job.core.executor.XxlJobExecutor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.text.SimpleDateFormat;
@@ -12,18 +13,14 @@ import java.util.Date;
  * store trigger log in each log-file
  * @author xuxueli 2016-3-12 19:25:12
  */
-public class XxlJobFileAppender extends AppenderSkeleton {
+public class XxlJobFileAppender {
+	private static Logger logger = LoggerFactory.getLogger(XxlJobFileAppender.class);
 	
-	// for JobThread
-	public static ThreadLocal<String> contextHolder = new ThreadLocal<String>();
+	// for JobThread (support log for child thread of job handler)
+	//public static ThreadLocal<String> contextHolder = new ThreadLocal<String>();
+	public static InheritableThreadLocal<String> contextHolder = new InheritableThreadLocal<String>();
 	public static SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 	
-	// trogger log file path
-	public static volatile String filePath;
-	public void setFilePath(String filePath) {
-		XxlJobFileAppender.filePath = filePath;
-	}
-
 	/**
 	 * log filename: yyyy-MM-dd/9999.log
 	 *
@@ -34,7 +31,7 @@ public class XxlJobFileAppender extends AppenderSkeleton {
 	public static String makeLogFileName(Date triggerDate, int logId) {
 
         // filePath/
-        File filePathDir = new File(filePath);
+        File filePathDir = new File(XxlJobExecutor.logPath);
         if (!filePathDir.exists()) {
             filePathDir.mkdirs();
         }
@@ -51,20 +48,31 @@ public class XxlJobFileAppender extends AppenderSkeleton {
 		return logFileName;
 	}
 
-	@Override
-	protected void append(LoggingEvent event) {
+	/**
+	 * append log
+	 *
+	 * @param logFileName
+	 * @param appendLog
+	 */
+	public static void appendLog(String logFileName, String appendLog) {
 
-		String logFileName = contextHolder.get();
+		// log
+		if (appendLog == null) {
+			appendLog = "";
+		}
+		appendLog += "\r\n";
+
+		// log file
 		if (logFileName==null || logFileName.trim().length()==0) {
 			return;
 		}
-		File logFile = new File(filePath, logFileName);
+		File logFile = new File(XxlJobExecutor.logPath, logFileName);
 
 		if (!logFile.exists()) {
 			try {
 				logFile.createNewFile();
 			} catch (IOException e) {
-				e.printStackTrace();
+				logger.error(e.getMessage(), e);
 				return;
 			}
 		}
@@ -74,64 +82,80 @@ public class XxlJobFileAppender extends AppenderSkeleton {
 			FileOutputStream fos = null;
 			try {
 				fos = new FileOutputStream(logFile, true);
-				fos.write(layout.format(event).getBytes("utf-8"));
-				if (layout.ignoresThrowable()) {
-					String[] throwableInfo = event.getThrowableStrRep();
-					if (throwableInfo != null) {
-						for (int i = 0; i < throwableInfo.length; i++) {
-							fos.write(throwableInfo[i].getBytes("utf-8"));
-							fos.write(Layout.LINE_SEP.getBytes("utf-8"));
-						}
-					}
-				}
+				fos.write(appendLog.getBytes("utf-8"));
 				fos.flush();
 			} finally {
 				if (fos != null) {
 					try {
 						fos.close();
 					} catch (IOException e) {
-						e.printStackTrace();
+						logger.error(e.getMessage(), e);
 					}
 				}
 			} 
 		} catch (Exception e) {
-			e.printStackTrace();
+			logger.error(e.getMessage(), e);
 		}
 		
 	}
 
-	@Override
-	public void close() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public boolean requiresLayout() {
-		// TODO Auto-generated method stub
-		return false;
-	}
-	
 	/**
 	 * support read log-file
+	 *
 	 * @param logFileName
 	 * @return log content
 	 */
-	public static String readLog(String logFileName ){
+	public static LogResult readLog(String logFileName, int fromLineNum){
 
+		// valid log file
 		if (logFileName==null || logFileName.trim().length()==0) {
-			return null;
+            return new LogResult(fromLineNum, 0, "readLog fail, logFile not found", true);
 		}
-		File logFile = new File(filePath, logFileName);
+		File logFile = new File(XxlJobExecutor.logPath, logFileName);
 
 		if (!logFile.exists()) {
-			return null;
+            return new LogResult(fromLineNum, 0, "readLog fail, logFile not exists", true);
 		}
-		
-		String logData = readLines(logFile);
-		return logData;
+
+		// read file
+		StringBuffer logContentBuffer = new StringBuffer();
+		int toLineNum = 0;
+		LineNumberReader reader = null;
+		try {
+			//reader = new LineNumberReader(new FileReader(logFile));
+			reader = new LineNumberReader(new InputStreamReader(new FileInputStream(logFile), "utf-8"));
+			String line = null;
+
+			while ((line = reader.readLine())!=null) {
+				toLineNum = reader.getLineNumber();		// [from, to], start as 1
+				if (toLineNum >= fromLineNum) {
+					logContentBuffer.append(line).append("\n");
+				}
+			}
+		} catch (IOException e) {
+			logger.error(e.getMessage(), e);
+		} finally {
+			if (reader != null) {
+				try {
+					reader.close();
+				} catch (IOException e) {
+					logger.error(e.getMessage(), e);
+				}
+			}
+		}
+
+		// result
+		LogResult logResult = new LogResult(fromLineNum, toLineNum, logContentBuffer.toString(), false);
+		return logResult;
+
+		/*
+        // it will return the number of characters actually skipped
+        reader.skip(Long.MAX_VALUE);
+        int maxLineNum = reader.getLineNumber();
+        maxLineNum++;	// 最大行号
+        */
 	}
-	
+
 	/**
 	 * read log data
 	 * @param logFile
@@ -159,55 +183,8 @@ public class XxlJobFileAppender extends AppenderSkeleton {
 					e.printStackTrace();
 				}
 			}
-		} 
+		}
 		return null;
 	}
-	
-	/**
-	 * read data from line num
-	 * @param logFile
-	 * @param fromLineNum
-	 * @return log content
-	 * @throws Exception
-	 */
-	public static String readLinesFrom(File logFile, int fromLineNum) {  
-        LineNumberReader reader = null;
-		try {
-			reader = new LineNumberReader(new FileReader(logFile));
-			
-			// sBuffer
-	        StringBuffer sBuffer = new StringBuffer();
-	    	String line = null;
-	    	int maxLineNum = 0;
-	    	while ((line = reader.readLine())!=null) {
-	    		maxLineNum++;
-	    		if (reader.getLineNumber() >= fromLineNum) {
-	    			sBuffer.append(line).append("\n");
-				}
-			}
-	    	
-	    	System.out.println("maxLineNum : " + maxLineNum);
-	    	return sBuffer.toString();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
-			if (reader != null) {
-				try {
-					reader.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-		
-		return null;
-		
-        /*
-        // it will return the number of characters actually skipped
-        reader.skip(Long.MAX_VALUE);	
-        int maxLineNum = reader.getLineNumber();  
-        maxLineNum++;	// 最大行号
-        */
-    }
-	
+
 }

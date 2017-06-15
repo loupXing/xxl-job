@@ -1,12 +1,11 @@
 package com.xxl.job.core.rpc.netcom.jetty.server;
 
-import com.xxl.job.core.registry.RegistHelper;
 import com.xxl.job.core.thread.ExecutorRegistryThread;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.handler.HandlerCollection;
-import org.eclipse.jetty.server.nio.SelectChannelConnector;
 import org.eclipse.jetty.util.thread.ExecutorThreadPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,34 +19,35 @@ public class JettyServer {
 
 	private Server server;
 	private Thread thread;
-	public void start(final int port, final String ip, final String appName, final RegistHelper registHelper) throws Exception {
+	public void start(final int port, final String ip, final String appName) throws Exception {
 		thread = new Thread(new Runnable() {
 			@Override
 			public void run() {
-				server = new Server();
-				server.setThreadPool(new ExecutorThreadPool(200, 200, 30000));	// 非阻塞
-				
-				// connector
-				SelectChannelConnector connector = new SelectChannelConnector();
+
+				// The Server
+				server = new Server(new ExecutorThreadPool());  // 非阻塞
+
+				// HTTP connector
+				ServerConnector connector = new ServerConnector(server);
 				connector.setPort(port);
-				connector.setMaxIdleTime(30000);
-				server.setConnectors(new Connector[] { connector });
-				
-				// handler
-				HandlerCollection handlerc =new HandlerCollection();  
+				server.setConnectors(new Connector[]{connector});
+
+				// Set a handler
+				HandlerCollection handlerc =new HandlerCollection();
 				handlerc.setHandlers(new Handler[]{new JettyServerHandler()});
 				server.setHandler(handlerc);
 
 				try {
+					// Start the server
 					server.start();
 					logger.info(">>>>>>>>>>>> xxl-job jetty server start success at port:{}.", port);
-					ExecutorRegistryThread.getInstance().start(port, ip, appName, registHelper);
+					ExecutorRegistryThread.getInstance().start(port, ip, appName);
 					server.join();	// block until thread stopped
-					logger.info(">>>>>>>>>>> xxl-rpc server start success, netcon={}, port={}", JettyServer.class.getName(), port);
+					logger.info(">>>>>>>>>>> xxl-rpc server join success, netcon={}, port={}", JettyServer.class.getName(), port);
 				} catch (Exception e) {
 					logger.error("", e);
 				} finally {
-					server.destroy();
+					destroy();
 				}
 			}
 		});
@@ -58,6 +58,7 @@ public class JettyServer {
 	public void destroy() {
 		if (server != null) {
 			try {
+				server.stop();
 				server.destroy();
 			} catch (Exception e) {
 				logger.error("", e);

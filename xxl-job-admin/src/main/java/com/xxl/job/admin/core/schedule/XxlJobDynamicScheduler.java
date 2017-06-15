@@ -2,16 +2,13 @@ package com.xxl.job.admin.core.schedule;
 
 import com.xxl.job.admin.core.jobbean.RemoteHttpJobBean;
 import com.xxl.job.admin.core.model.XxlJobInfo;
-import com.xxl.job.admin.core.thread.JobMonitorHelper;
-import com.xxl.job.admin.core.thread.JobRegistryHelper;
+import com.xxl.job.admin.core.thread.JobFailMonitorHelper;
+import com.xxl.job.admin.core.thread.JobRegistryMonitorHelper;
 import com.xxl.job.admin.dao.IXxlJobGroupDao;
 import com.xxl.job.admin.dao.IXxlJobInfoDao;
 import com.xxl.job.admin.dao.IXxlJobLogDao;
 import com.xxl.job.admin.dao.IXxlJobRegistryDao;
-import com.xxl.job.core.biz.AdminBiz;
-import com.xxl.job.admin.core.biz.AdminBizImpl;
 import com.xxl.job.core.rpc.netcom.NetComServerFactory;
-import com.xxl.job.core.util.IpUtil;
 import org.quartz.*;
 import org.quartz.Trigger.TriggerState;
 import org.quartz.impl.matchers.GroupMatcher;
@@ -39,49 +36,23 @@ public final class XxlJobDynamicScheduler implements ApplicationContextAware, In
 		XxlJobDynamicScheduler.scheduler = scheduler;
 	}
     
-    // trigger callback address
-    private String callBackIp;
-    private int callBackPort = 8888;
-    private static String callbackAddress;
-
-    public void setCallBackIp(String callBackIp) {
-        this.callBackIp = callBackIp;
-    }
-    public void setCallBackPort(int callBackPort) {
-		this.callBackPort = callBackPort;
-	}
-    public static String getCallbackAddress(){
-        return callbackAddress;
-    }
-
     // init
     private NetComServerFactory serverFactory = new NetComServerFactory();
     public void init() throws Exception {
-        // server
-        NetComServerFactory.putService(AdminBiz.class, new AdminBizImpl());
-        serverFactory.start(callBackPort, callBackIp, null, null);
-
-		// init callbackAddress
-        if (callBackIp!=null && callBackIp.trim().length()>0) {
-            callbackAddress = callBackIp.trim().concat(":").concat(String.valueOf(callBackPort));
-        } else {
-            callbackAddress = IpUtil.getIpPort(callBackPort);;
-        }
-
-		// admin registry run
-        JobRegistryHelper.getInstance().start();
+		// admin registry monitor run
+        JobRegistryMonitorHelper.getInstance().start();
 
         // admin monitor run
-        JobMonitorHelper.getInstance().start();
+        JobFailMonitorHelper.getInstance().start();
     }
     
     // destroy
     public void destroy(){
         // admin registry stop
-        JobRegistryHelper.getInstance().toStop();
+        JobRegistryMonitorHelper.getInstance().toStop();
 
         // admin monitor stop
-        JobMonitorHelper.getInstance().toStop();
+        JobFailMonitorHelper.getInstance().toStop();
 
         serverFactory.destroy();
     }
@@ -222,25 +193,40 @@ public final class XxlJobDynamicScheduler implements ApplicationContextAware, In
         
         // TriggerKey : name + group
         TriggerKey triggerKey = TriggerKey.triggerKey(jobName, jobGroup);
-        JobKey jobKey = new JobKey(jobName, jobGroup);
-        
-        // CronTrigger : TriggerKey + cronExpression
-        CronScheduleBuilder cronScheduleBuilder = CronScheduleBuilder.cronSchedule(cronExpression).withMisfireHandlingInstructionDoNothing();
-        CronTrigger cronTrigger = TriggerBuilder.newTrigger().withIdentity(triggerKey).withSchedule(cronScheduleBuilder).build();
-        
-        //scheduler.rescheduleJob(triggerKey, cronTrigger);
-        
-        // JobDetail-JobDataMap fresh
-        JobDetail jobDetail = scheduler.getJobDetail(jobKey);
-    	/*JobDataMap jobDataMap = jobDetail.getJobDataMap();
-    	jobDataMap.clear();
-    	jobDataMap.putAll(JacksonUtil.readValue(jobInfo.getJobData(), Map.class));*/
-    	
-    	// Trigger fresh
-    	HashSet<Trigger> triggerSet = new HashSet<Trigger>();
-    	triggerSet.add(cronTrigger);
-        
-        scheduler.scheduleJob(jobDetail, triggerSet, true);
+        CronTrigger oldTrigger = (CronTrigger) scheduler.getTrigger(triggerKey);
+
+        if (oldTrigger != null) {
+            // avoid repeat
+            String oldCron = oldTrigger.getCronExpression();
+            if (oldCron.equals(cronExpression)){
+                return true;
+            }
+
+            // CronTrigger : TriggerKey + cronExpression
+            CronScheduleBuilder cronScheduleBuilder = CronScheduleBuilder.cronSchedule(cronExpression).withMisfireHandlingInstructionDoNothing();
+            oldTrigger = oldTrigger.getTriggerBuilder().withIdentity(triggerKey).withSchedule(cronScheduleBuilder).build();
+
+            // rescheduleJob
+            scheduler.rescheduleJob(triggerKey, oldTrigger);
+        } else {
+            // CronTrigger : TriggerKey + cronExpression
+            CronScheduleBuilder cronScheduleBuilder = CronScheduleBuilder.cronSchedule(cronExpression).withMisfireHandlingInstructionDoNothing();
+            CronTrigger cronTrigger = TriggerBuilder.newTrigger().withIdentity(triggerKey).withSchedule(cronScheduleBuilder).build();
+
+            // JobDetail-JobDataMap fresh
+            JobKey jobKey = new JobKey(jobName, jobGroup);
+            JobDetail jobDetail = scheduler.getJobDetail(jobKey);
+            /*JobDataMap jobDataMap = jobDetail.getJobDataMap();
+            jobDataMap.clear();
+            jobDataMap.putAll(JacksonUtil.readValue(jobInfo.getJobData(), Map.class));*/
+
+            // Trigger fresh
+            HashSet<Trigger> triggerSet = new HashSet<Trigger>();
+            triggerSet.add(cronTrigger);
+
+            scheduler.scheduleJob(jobDetail, triggerSet, true);
+        }
+
         logger.info(">>>>>>>>>>> resumeJob success, JobGroup:{}, JobName:{}", jobGroup, jobName);
         return true;
     }

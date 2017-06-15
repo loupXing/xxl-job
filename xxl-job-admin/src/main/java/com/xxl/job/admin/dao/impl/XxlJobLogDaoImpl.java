@@ -9,6 +9,7 @@ import javax.annotation.Resource;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * job log
@@ -76,5 +77,29 @@ public class XxlJobLogDaoImpl implements IXxlJobLogDao {
 	public int delete(int jobId) {
 		return sqlSessionTemplate.delete("XxlJobLogMapper.delete", jobId);
 	}
-	
+
+	@Override
+	public int triggerCountByHandleCode(int handleCode) {
+		return sqlSessionTemplate.selectOne("XxlJobLogMapper.triggerCountByHandleCode", handleCode);
+	}
+
+	@Override
+	public List<Map<String, Object>> triggerCountByDay(Date from, Date to, int handleCode) {
+		Map<String, Object> params = new HashMap<String, Object>();
+		params.put("from", from);
+		params.put("to", to);
+		params.put("handleCode", handleCode);
+		return sqlSessionTemplate.selectList("XxlJobLogMapper.triggerCountByDay", params);
+	}
+
+	@Override
+	public int clearLog(int jobGroup, int jobId, Date clearBeforeTime, int clearBeforeNum) {
+		Map<String, Object> params = new HashMap<String, Object>();
+		params.put("jobGroup", jobGroup);
+		params.put("jobId", jobId);
+		params.put("clearBeforeTime", clearBeforeTime);
+		params.put("clearBeforeNum", clearBeforeNum);
+		return sqlSessionTemplate.delete("XxlJobLogMapper.clearLog", params);
+	}
+
 }

@@ -7,25 +7,19 @@
 	<!-- DataTables -->
   	<link rel="stylesheet" href="${request.contextPath}/static/adminlte/plugins/datatables/dataTables.bootstrap.css">
 
-	<#-- select2
-    <link rel="stylesheet" href="${request.contextPath}/static/adminlte/plugins/select2/select2.min.css">
-    <script src="${request.contextPath}/static/adminlte/plugins/select2/select2.min.js"></script>
-    //$(".select2").select2();
-    -->
-
 </head>
 <body class="hold-transition skin-blue sidebar-mini <#if cookieMap?exists && "off" == cookieMap["adminlte_settings"].value >sidebar-collapse</#if>">
 <div class="wrapper">
 	<!-- header -->
 	<@netCommon.commonHeader />
 	<!-- left -->
-	<@netCommon.commonLeft />
+	<@netCommon.commonLeft "jobinfo" />
 	
 	<!-- Content Wrapper. Contains page content -->
 	<div class="content-wrapper">
 		<!-- Content Header (Page header) -->
 		<section class="content-header">
-			<h1>调度管理<small>任务调度中心</small></h1>
+			<h1>任务管理<small>任务调度中心</small></h1>
 			<!--
 			<ol class="breadcrumb">
 				<li><a><i class="fa fa-dashboard"></i>调度管理</a></li>
@@ -76,14 +70,14 @@
 					                	<th name="jobGroup" >jobGroup</th>
                                         <th name="childJobKey" >JobKey</th>
 					                  	<th name="jobDesc" >描述</th>
-                                        <th name="executorHandler" >JobJandler</th>
+                                        <th name="glueType" >运行模式</th>
 					                  	<th name="executorParam" >任务参数</th>
                                         <th name="jobCron" >Cron</th>
 					                  	<th name="addTime" >新增时间</th>
 					                  	<th name="updateTime" >更新时间</th>
 					                  	<th name="author" >负责人</th>
 					                  	<th name="alarmEmail" >报警邮件</th>
-					                  	<th name="glueSwitch" >GLUE模式</th>
+					                  	<th name="glueType" >运行模式</th>
 					                  	<th name="jobStatus" >状态</th>
 					                  	<th>操作</th>
 					                </tr>
@@ -136,27 +130,48 @@
                         <div class="col-sm-4"><input type="text" class="form-control" name="jobCron" placeholder="请输入“Cron”" maxlength="20" ></div>
                     </div>
                     <div class="form-group">
-                        <label for="firstname" class="col-sm-2 control-label">JobHandler<font color="red">*</font></label>
+                        <label for="firstname" class="col-sm-2 control-label">运行模式<font color="red">*</font></label>
                         <div class="col-sm-4">
-                            <div class="input-group">
-                                <input type="text" class="form-control" name="executorHandler" placeholder="请输入“JobHandler”" maxlength="100" >
-                                <span class="input-group-addon"><b>GLUE</b>&nbsp;<input type="checkbox" class="ifGLUE" ></span>
-                                <input type="hidden" name="glueSwitch" value="0" >
-                            </div>
+                            <select class="form-control glueType" name="glueType" >
+								<#list GlueTypeEnum as item>
+									<option value="${item}" >${item.desc}</option>
+								</#list>
+                            </select>
                         </div>
+                        <label for="firstname" class="col-sm-2 control-label">JobHandler<font color="black">*</font></label>
+                        <div class="col-sm-4"><input type="text" class="form-control" name="executorHandler" placeholder="请输入“JobHandler”" maxlength="100" ></div>
+                    </div>
+                    <div class="form-group">
                         <label for="firstname" class="col-sm-2 control-label">执行参数<font color="black">*</font></label>
                         <div class="col-sm-4"><input type="text" class="form-control" name="executorParam" placeholder="请输入“执行参数”" maxlength="100" ></div>
-                    </div>
-					<div class="form-group">
-						<label for="lastname" class="col-sm-2 control-label">报警邮件<font color="red">*</font></label>
-						<div class="col-sm-4"><input type="text" class="form-control" name="alarmEmail" placeholder="请输入“报警邮件”，多个邮件地址逗号分隔" maxlength="100" ></div>
-                        <label for="lastname" class="col-sm-2 control-label">负责人<font color="red">*</font></label>
-                        <div class="col-sm-4"><input type="text" class="form-control" name="author" placeholder="请输入“负责人”" maxlength="50" ></div>
-					</div>
-                    <div class="form-group">
                         <label for="lastname" class="col-sm-2 control-label">子任务Key<font color="black">*</font></label>
                         <div class="col-sm-4"><input type="text" class="form-control" name="childJobKey" placeholder="请输入子任务的任务Key,如存在多个逗号分隔" maxlength="100" ></div>
                     </div>
+                    <div class="form-group">
+                        <label for="firstname" class="col-sm-2 control-label">阻塞处理策略<font color="red">*</font></label>
+                        <div class="col-sm-4">
+                            <select class="form-control" name="executorBlockStrategy" >
+								<#list ExecutorBlockStrategyEnum as item>
+									<option value="${item}" >${item.title}</option>
+								</#list>
+                            </select>
+						</div>
+                        <label for="lastname" class="col-sm-2 control-label">失败处理策略<font color="red">*</font></label>
+                        <div class="col-sm-4">
+                            <select class="form-control" name="executorFailStrategy" >
+								<#list ExecutorFailStrategyEnum as item>
+									<option value="${item}" >${item.title}</option>
+								</#list>
+                            </select>
+						</div>
+                    </div>
+					<div class="form-group">
+                        <label for="lastname" class="col-sm-2 control-label">负责人<font color="red">*</font></label>
+                        <div class="col-sm-4"><input type="text" class="form-control" name="author" placeholder="请输入“负责人”" maxlength="50" ></div>
+						<label for="lastname" class="col-sm-2 control-label">报警邮件<font color="black">*</font></label>
+						<div class="col-sm-4"><input type="text" class="form-control" name="alarmEmail" placeholder="请输入“报警邮件”，多个邮件地址逗号分隔" maxlength="100" ></div>
+					</div>
+
                     <hr>
 					<div class="form-group">
 						<div class="col-sm-offset-3 col-sm-6">
@@ -166,23 +181,57 @@
 					</div>
 
 <input type="hidden" name="glueRemark" value="GLUE代码初始化" >
-<textarea name="glueSource" style="display:none;" >
+<textarea name="glueSource" style="display:none;" ></textarea>
+<textarea class="glueSource_java" style="display:none;" >
 package com.xxl.job.service.handler;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import com.xxl.job.core.log.XxlJobLogger;
+import com.xxl.job.core.biz.model.ReturnT;
 import com.xxl.job.core.handler.IJobHandler;
 
 public class DemoGlueJobHandler extends IJobHandler {
-	private static transient Logger logger = LoggerFactory.getLogger(DemoGlueJobHandler.class);
 
 	@Override
-	public void execute(String... params) throws Exception {
-		logger.info("XXL-JOB, Hello World.");
+	public ReturnT<String> execute(String... params) throws Exception {
+		XxlJobLogger.log("XXL-JOB, Hello World.");
+		return ReturnT.SUCCESS;
 	}
 
 }
+</textarea>
+<textarea class="glueSource_shell" style="display:none;" >
+#!/bin/bash
+echo "xxl-job: hello shell"
+
+echo "脚本位置：$0"
+echo "参数数量：$#"
+for param in $*
+do
+    echo "参数 : $param"
+    sleep 1s
+done
+
+echo "Good bye!"
+exit 0
+</textarea>
+<textarea class="glueSource_python" style="display:none;" >
+#!/usr/bin/python
+# -*- coding: UTF-8 -*-
+import time
+import sys
+
+print "xxl-job: hello python"
+print "脚本文件：", sys.argv[0]
+for i in range(1, len(sys.argv)):
+	time.sleep(1)
+	print "参数", i, sys.argv[i]
+
+print "Good bye!"
+exit(0)<#--
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logging.info("脚本文件：" + sys.argv[0])
+-->
 </textarea>
 					
 				</form>
@@ -225,27 +274,48 @@ public class DemoGlueJobHandler extends IJobHandler {
                         <div class="col-sm-4"><input type="text" class="form-control" name="jobCron" placeholder="请输入“Cron”" maxlength="20" ></div>
                     </div>
                     <div class="form-group">
-                        <label for="firstname" class="col-sm-2 control-label">JobHandler<font color="red">*</font></label>
+                        <label for="firstname" class="col-sm-2 control-label">运行模式<font color="red">*</font></label>
                         <div class="col-sm-4">
-                            <div class="input-group">
-                                <input type="text" class="form-control" name="executorHandler" placeholder="请输入“JobHandler”" maxlength="100" >
-                                <span class="input-group-addon"><b>GLUE</b>&nbsp;<input type="checkbox" class="ifGLUE" ></span>
-                                <input type="hidden" name="glueSwitch" value="0" >
-                            </div>
+                            <select class="form-control glueType" name="glueType" disabled >
+							<#list GlueTypeEnum as item>
+                                <option value="${item}" >${item.desc}</option>
+							</#list>
+                            </select>
                         </div>
+                        <label for="firstname" class="col-sm-2 control-label">JobHandler<font color="black">*</font></label>
+                        <div class="col-sm-4"><input type="text" class="form-control" name="executorHandler" placeholder="请输入“JobHandler”" maxlength="100" ></div>
+                    </div>
+                    <div class="form-group">
                         <label for="firstname" class="col-sm-2 control-label">执行参数<font color="black">*</font></label>
                         <div class="col-sm-4"><input type="text" class="form-control" name="executorParam" placeholder="请输入“执行参数”" maxlength="100" ></div>
-                    </div>
-                    <div class="form-group">
-                        <label for="lastname" class="col-sm-2 control-label">报警邮件<font color="red">*</font></label>
-                        <div class="col-sm-4"><input type="text" class="form-control" name="alarmEmail" placeholder="请输入“报警邮件”，多个邮件地址逗号分隔" maxlength="100" ></div>
-                        <label for="lastname" class="col-sm-2 control-label">负责人<font color="red">*</font></label>
-                        <div class="col-sm-4"><input type="text" class="form-control" name="author" placeholder="请输入“负责人”" maxlength="50" ></div>
-                    </div>
-                    <div class="form-group">
                         <label for="lastname" class="col-sm-2 control-label">子任务Key<font color="black">*</font></label>
                         <div class="col-sm-4"><input type="text" class="form-control" name="childJobKey" placeholder="请输入子任务的任务Key,如存在多个逗号分隔" maxlength="100" ></div>
                     </div>
+                    <div class="form-group">
+                        <label for="firstname" class="col-sm-2 control-label">阻塞处理策略<font color="red">*</font></label>
+                        <div class="col-sm-4">
+                            <select class="form-control" name="executorBlockStrategy" >
+							<#list ExecutorBlockStrategyEnum as item>
+                                <option value="${item}" >${item.title}</option>
+							</#list>
+                            </select>
+                        </div>
+                        <label for="lastname" class="col-sm-2 control-label">失败处理策略<font color="red">*</font></label>
+                        <div class="col-sm-4">
+                            <select class="form-control" name="executorFailStrategy" >
+							<#list ExecutorFailStrategyEnum as item>
+                                <option value="${item}" >${item.title}</option>
+							</#list>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="lastname" class="col-sm-2 control-label">负责人<font color="red">*</font></label>
+                        <div class="col-sm-4"><input type="text" class="form-control" name="author" placeholder="请输入“负责人”" maxlength="50" ></div>
+                        <label for="lastname" class="col-sm-2 control-label">报警邮件<font color="black">*</font></label>
+                        <div class="col-sm-4"><input type="text" class="form-control" name="alarmEmail" placeholder="请输入“报警邮件”，多个邮件地址逗号分隔" maxlength="100" ></div>
+                    </div>
+
 					<hr>
 					<div class="form-group">
                         <div class="col-sm-offset-3 col-sm-6">
@@ -265,9 +335,8 @@ public class DemoGlueJobHandler extends IJobHandler {
 <script src="${request.contextPath}/static/adminlte/plugins/datatables/jquery.dataTables.min.js"></script>
 <script src="${request.contextPath}/static/adminlte/plugins/datatables/dataTables.bootstrap.min.js"></script>
 <script src="${request.contextPath}/static/plugins/jquery/jquery.validate.min.js"></script>
-<!-- daterangepicker -->
+<!-- moment -->
 <script src="${request.contextPath}/static/adminlte/plugins/daterangepicker/moment.min.js"></script>
-<script src="${request.contextPath}/static/adminlte/plugins/daterangepicker/daterangepicker.js"></script>
 <script src="${request.contextPath}/static/js/jobinfo.index.1.js"></script>
 </body>
 </html>

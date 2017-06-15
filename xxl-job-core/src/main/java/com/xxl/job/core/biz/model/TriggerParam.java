@@ -1,7 +1,6 @@
 package com.xxl.job.core.biz.model;
 
 import java.io.Serializable;
-import java.util.Set;
 
 /**
  * Created by xuxueli on 16/7/22.
@@ -13,14 +12,14 @@ public class TriggerParam implements Serializable{
 
     private String executorHandler;
     private String executorParams;
+    private String executorBlockStrategy;
 
-    private boolean glueSwitch;
+    private String glueType;
+    private String glueSource;
     private long glueUpdatetime;
 
     private int logId;
     private long logDateTim;
-
-    private Set<String> logAddress;
 
     public int getJobId() {
         return jobId;
@@ -46,12 +45,28 @@ public class TriggerParam implements Serializable{
         this.executorParams = executorParams;
     }
 
-    public boolean isGlueSwitch() {
-        return glueSwitch;
+    public String getExecutorBlockStrategy() {
+        return executorBlockStrategy;
     }
 
-    public void setGlueSwitch(boolean glueSwitch) {
-        this.glueSwitch = glueSwitch;
+    public void setExecutorBlockStrategy(String executorBlockStrategy) {
+        this.executorBlockStrategy = executorBlockStrategy;
+    }
+
+    public String getGlueType() {
+        return glueType;
+    }
+
+    public void setGlueType(String glueType) {
+        this.glueType = glueType;
+    }
+
+    public String getGlueSource() {
+        return glueSource;
+    }
+
+    public void setGlueSource(String glueSource) {
+        this.glueSource = glueSource;
     }
 
     public long getGlueUpdatetime() {
@@ -78,11 +93,18 @@ public class TriggerParam implements Serializable{
         this.logDateTim = logDateTim;
     }
 
-    public Set<String> getLogAddress() {
-        return logAddress;
-    }
-
-    public void setLogAddress(Set<String> logAddress) {
-        this.logAddress = logAddress;
+    @Override
+    public String toString() {
+        return "TriggerParam{" +
+                "jobId=" + jobId +
+                ", executorHandler='" + executorHandler + '\'' +
+                ", executorParams='" + executorParams + '\'' +
+                ", executorBlockStrategy='" + executorBlockStrategy + '\'' +
+                ", glueType='" + glueType + '\'' +
+                ", glueSource='" + glueSource + '\'' +
+                ", glueUpdatetime=" + glueUpdatetime +
+                ", logId=" + logId +
+                ", logDateTim=" + logDateTim +
+                '}';
     }
 }

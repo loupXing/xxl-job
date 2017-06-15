@@ -11,7 +11,7 @@ $(function() {
 			dataType : "json",
 			success : function(data){
 				if (data.code == 200) {
-					$("#jobId").html('<option value="0" >请选择</option>');
+					$("#jobId").html('<option value="0" >全部</option>');
 					$.each(data.content, function (n, value) {
                         $("#jobId").append('<option value="' + value.id + '" >' + value.jobDesc + '</option>');
                     });
@@ -19,7 +19,11 @@ $(function() {
                         $("#jobId").find("option[value='" + $("#jobId").attr("paramVal") + "']").attr("selected",true);
                     }
 				} else {
-					ComAlertTec.show(data.msg);
+					layer.open({
+						title: '系统提示',
+						content: (data.msg || "接口异常"),
+						icon: '2'
+					});
 				}
 			},
 		});
@@ -31,20 +35,25 @@ $(function() {
 
 	// 过滤时间
 	$('#filterTime').daterangepicker({
-		timePicker: true, 			//是否显示小时和分钟
-		timePickerIncrement: 10, 	//时间的增量，单位为分钟
-		timePicker12Hour : false,	//是否使用12小时制来显示时间
-		format: 'YYYY-MM-DD HH:mm:ss',
-		separator : ' - ',
-		ranges : {
-            '最近1小时': [moment().subtract('hours',1), moment()],
-            '今日': [moment().startOf('day'), moment()],
-            '昨日': [moment().subtract('days', 1).startOf('day'), moment().subtract('days', 1).endOf('day')],
-            '最近7日': [moment().subtract('days', 6), moment()],
-            '最近30日': [moment().subtract('days', 29), moment()]
-        },
+        autoApply:false,
+        singleDatePicker:false,
+        showDropdowns:false,        // 是否显示年月选择条件
+		timePicker: true, 			// 是否显示小时和分钟选择条件
+		timePickerIncrement: 10, 	// 时间的增量，单位为分钟
+        timePicker24Hour : true,
         opens : 'left', //日期选择框的弹出位置
+		ranges: {
+			'最近1小时': [moment().subtract(1, 'hours'), moment()],
+			'今日': [moment().startOf('day'), moment().endOf('day')],
+			'昨日': [moment().subtract(1, 'days').startOf('day'), moment().subtract(1, 'days').endOf('day')],
+			'最近7日': [moment().subtract(6, 'days'), moment()],
+			'最近30日': [moment().subtract(29, 'days'), moment()],
+			'本月': [moment().startOf('month'), moment().endOf('month')],
+			'上个月': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+		},
         locale : {
+            format: 'YYYY-MM-DD HH:mm:ss',
+            separator : ' - ',
         	customRangeLabel : '自定义',
             applyLabel : '确定',
             cancelLabel : '取消',
@@ -52,11 +61,12 @@ $(function() {
             toLabel : '结束时间',
             daysOfWeek : [ '日', '一', '二', '三', '四', '五', '六' ],
             monthNames : [ '一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月' ],
-            firstDay : 1
+            firstDay : 1,
+            startDate: moment().startOf('day'),
+            endDate: moment().endOf('day')
         }
 	});
-	$('#filterTime').val( moment(new Date()).format("YYYY-MM-DD 00:00:00") + ' - ' + moment(new Date()).add(1, 'days').format("YYYY-MM-DD 00:00:00") );	// YYYY-MM-DD HH:mm:ss
-	
+
 	// init date tables
 	var logTable = $("#joblog_list").dataTable({
 		"deferRender": true,
@@ -102,10 +112,19 @@ $(function() {
 					},
 	                { "data": 'executorAddress', "visible" : true},
 					{
-						"data": 'executorHandler',
+						"data": 'glueType',
 						"visible" : true,
 						"render": function ( data, type, row ) {
-							return (row.executorHandler)?row.executorHandler:"GLUE模式";
+							if ('GLUE_GROOVY'==row.glueType) {
+								return "GLUE模式(Java)";
+							} else if ('GLUE_SHELL'==row.glueType) {
+								return "GLUE模式(Shell)";
+							} else if ('GLUE_PYTHON'==row.glueType) {
+								return "GLUE模式(Python)";
+							} else if ('BEAN'==row.glueType) {
+								return "BEAN模式：" + row.executorHandler;
+							}
+							return row.executorHandler;
 						}
 					},
 	                { "data": 'executorParam', "visible" : true},
@@ -128,14 +147,17 @@ $(function() {
 	                		return data?'<a class="logTips" href="javascript:;" >查看<span style="display:none;">'+ data +'</span></a>':"无";
 	                	}
 	                },
-	                { "data": 'handleMsg' , "bSortable": false,
+	                {
+						"data": 'handleMsg' ,
+						"bSortable": false,
+						"width": "8%" ,
 	                	"render": function ( data, type, row ) {
 	                		// better support expression or string, not function
 	                		return function () {
 		                		if (row.triggerCode == 200){
 		                			var temp = '<a href="javascript:;" class="logDetail" _id="'+ row.id +'">执行日志</a>';
 		                			if(row.handleCode == 0){
-		                				temp += '<br><a href="javascript:;" class="logKill" _id="'+ row.id +'">终止任务</a>';
+		                				temp += '<br><a href="javascript:;" class="logKill" _id="'+ row.id +'" style="color: red;" >终止任务</a>';
 		                			}
 		                			return temp;
 		                		}
@@ -170,12 +192,6 @@ $(function() {
 		}
 	});
 	
-	// 任务数据
-	$('#joblog_list').on('click', '.logMsg', function(){
-		var msg = $(this).find('span').html();
-		ComAlert.show(2, msg);
-	});
-	
 	// 日志弹框提示
 	$('#joblog_list').on('click', '.logTips', function(){
 		var msg = $(this).find('span').html();
@@ -193,42 +209,126 @@ $(function() {
 		
 		window.open(base_url + '/joblog/logDetailPage?id=' + _id);
 		return;
-		
-		/*
-		$.ajax({
-			type : 'POST',
-			url : base_url + '/joblog/logDetail',
-			data : {"id":_id},
-			dataType : "json",
-			success : function(data){
-				if (data.code == 200) {
-					ComAlertTec.show('<pre style="color: white;background-color: black;width2:'+ $(window).width()*2/3 +'px;" >'+ data.content +'</pre>');
-				} else {
-					ComAlertTec.show(data.msg);
-				}
-			},
-		});
-		*/
 	});
-	
+
+	/**
+	 * 终止任务
+	 */
 	$('#joblog_list').on('click', '.logKill', function(){
 		var _id = $(this).attr('_id');
-		ComConfirm.show("确认主动终止任务?", function(){
-			$.ajax({
-				type : 'POST',
-				url : base_url + '/joblog/logKill',
-				data : {"id":_id},
-				dataType : "json",
-				success : function(data){
-					if (data.code == 200) {
-						ComAlert.show(1, '操作成功');
+
+        layer.confirm('确认主动终止任务?', {icon: 3, title:'系统提示'}, function(index){
+            layer.close(index);
+
+            $.ajax({
+                type : 'POST',
+                url : base_url + '/joblog/logKill',
+                data : {"id":_id},
+                dataType : "json",
+                success : function(data){
+                    if (data.code == 200) {
+                        layer.open({
+                            title: '系统提示',
+                            content: '操作成功',
+                            icon: '1',
+                            end: function(layero, index){
+                                logTable.fnDraw();
+                            }
+                        });
+                    } else {
+                        layer.open({
+                            title: '系统提示',
+                            content: (data.msg || "操作失败"),
+                            icon: '2'
+                        });
+                    }
+                },
+            });
+        });
+
+	});
+
+	/**
+	 * 清理任务Log
+	 */
+	$('#clearLog').on('click', function(){
+
+		var jobGroup = $('#jobGroup').val();
+		var jobId = $('#jobId').val();
+
+		var jobGroupText = $("#jobGroup").find("option:selected").text();
+		var jobIdText = $("#jobId").find("option:selected").text();
+
+		$('#clearLogModal input[name=jobGroup]').val(jobGroup);
+		$('#clearLogModal input[name=jobId]').val(jobId);
+
+		$('#clearLogModal .jobGroupText').val(jobGroupText);
+		$('#clearLogModal .jobIdText').val(jobIdText);
+
+		$('#clearLogModal').modal('show');
+
+	});
+	$("#clearLogModal .ok").on('click', function(){
+		$.post(base_url + "/joblog/clearLog",  $("#clearLogModal .form").serialize(), function(data, status) {
+			if (data.code == "200") {
+				$('#clearLogModal').modal('hide');
+				layer.open({
+					title: '系统提示',
+					content: '日志清理成功',
+					icon: '1',
+					end: function(layero, index){
 						logTable.fnDraw();
-					} else {
-						ComAlert.show(2, data.msg);
 					}
-				},
-			});
+				});
+			} else {
+				layer.open({
+					title: '系统提示',
+					content: (data.msg || "日志清理失败"),
+					icon: '2'
+				});
+			}
 		});
 	});
-	
+	$("#clearLogModal").on('hide.bs.modal', function () {
+		$("#clearLogModal .form")[0].reset();
+	});
+
 });
+
+
+// 提示-科技主题
+var ComAlertTec = {
+	html:function(){
+		var html =
+			'<div class="modal fade" id="ComAlertTec" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">' +
+			'<div class="modal-dialog">' +
+			'<div class="modal-content-tec">' +
+			'<div class="modal-body"><div class="alert" style="color:#fff;"></div></div>' +
+			'<div class="modal-footer">' +
+			'<div class="text-center" >' +
+			'<button type="button" class="btn btn-info ok" data-dismiss="modal" >确认</button>' +
+			'</div>' +
+			'</div>' +
+			'</div>' +
+			'</div>' +
+			'</div>';
+		return html;
+	},
+	show:function(msg, callback){
+		// dom init
+		if ($('#ComAlertTec').length == 0){
+			$('body').append(ComAlertTec.html());
+		}
+
+		// 弹框初始
+		$('#ComAlertTec .alert').html(msg);
+		$('#ComAlertTec').modal('show');
+
+		$('#ComAlertTec .ok').click(function(){
+			$('#ComAlertTec').modal('hide');
+			if(typeof callback == 'function') {
+				callback();
+			}
+		});
+	}
+};

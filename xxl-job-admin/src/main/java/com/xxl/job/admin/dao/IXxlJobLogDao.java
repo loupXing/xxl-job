@@ -4,6 +4,7 @@ import com.xxl.job.admin.core.model.XxlJobLog;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
  * job log
@@ -23,5 +24,11 @@ public interface IXxlJobLogDao {
 	public int updateHandleInfo(XxlJobLog xxlJobLog);
 	
 	public int delete(int jobId);
-	
+
+	public int triggerCountByHandleCode(int handleCode);
+
+	public List<Map<String, Object>> triggerCountByDay(Date from, Date to, int handleCode);
+
+	public int clearLog(int jobGroup, int jobId, Date clearBeforeTime, int clearBeforeNum);
+
 }
